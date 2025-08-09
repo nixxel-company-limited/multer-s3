@@ -11,6 +11,7 @@ var stream = require('stream')
 var FormData = require('form-data')
 var onFinished = require('on-finished')
 var mockS3 = require('./util/mock-s3')
+var DeleteObjectCommand = require('@aws-sdk/client-s3').DeleteObjectCommand
 
 var VALID_OPTIONS = {
   bucket: 'string'
@@ -82,7 +83,7 @@ describe('Multer S3', function () {
       assert.equal(req.file.size, 68)
       assert.equal(req.file.bucket, 'test')
       assert.equal(req.file.etag, 'mock-etag')
-      assert.equal(req.file.location, 'mock-location')
+      assert.ok(req.file.location.indexOf(req.file.key) >= 0)
 
       done()
     })
@@ -109,7 +110,7 @@ describe('Multer S3', function () {
       assert.equal(req.file.size, 68)
       assert.equal(req.file.bucket, 'test')
       assert.equal(req.file.etag, 'mock-etag')
-      assert.equal(req.file.location, 'mock-location')
+      assert.ok(req.file.location.indexOf(req.file.key) >= 0)
       assert.equal(req.file.serverSideEncryption, 'AES256')
 
       done()
@@ -137,7 +138,7 @@ describe('Multer S3', function () {
       assert.equal(req.file.size, 68)
       assert.equal(req.file.bucket, 'test')
       assert.equal(req.file.etag, 'mock-etag')
-      assert.equal(req.file.location, 'mock-location')
+      assert.ok(req.file.location.indexOf(req.file.key) >= 0)
       assert.equal(req.file.serverSideEncryption, 'aws:kms')
 
       done()
@@ -166,7 +167,7 @@ describe('Multer S3', function () {
       assert.equal(req.file.size, 68)
       assert.equal(req.file.bucket, 'test')
       assert.equal(req.file.etag, 'mock-etag')
-      assert.equal(req.file.location, 'mock-location')
+      assert.ok(req.file.location.indexOf(req.file.key) >= 0)
       assert.equal(req.file.serverSideEncryption, 'aws:kms')
 
       done()
@@ -195,7 +196,7 @@ describe('Multer S3', function () {
       assert.equal(req.file.size, 100)
       assert.equal(req.file.bucket, 'test')
       assert.equal(req.file.etag, 'mock-etag')
-      assert.equal(req.file.location, 'mock-location')
+      assert.ok(req.file.location.indexOf(req.file.key) >= 0)
       assert.equal(req.file.serverSideEncryption, 'aws:kms')
 
       done()
@@ -224,7 +225,7 @@ describe('Multer S3', function () {
       assert.equal(req.file.size, 285)
       assert.equal(req.file.bucket, 'test')
       assert.equal(req.file.etag, 'mock-etag')
-      assert.equal(req.file.location, 'mock-location')
+      assert.ok(req.file.location.indexOf(req.file.key) >= 0)
       assert.equal(req.file.serverSideEncryption, 'aws:kms')
 
       done()
@@ -256,7 +257,7 @@ describe('Multer S3', function () {
       assert.equal(req.file.size, 34574)
       assert.equal(req.file.bucket, 'test')
       assert.equal(req.file.etag, 'mock-etag')
-      assert.equal(req.file.location, 'mock-location')
+      assert.ok(req.file.location.indexOf(req.file.key) >= 0)
       assert.equal(req.file.serverSideEncryption, 'aws:kms')
 
       done()
@@ -284,9 +285,20 @@ describe('Multer S3', function () {
       assert.equal(req.file.size, 7)
       assert.equal(req.file.bucket, 'test')
       assert.equal(req.file.etag, 'mock-etag')
-      assert.equal(req.file.location, 'mock-location')
+      assert.ok(req.file.location.indexOf(req.file.key) >= 0)
       assert.equal(req.file.serverSideEncryption, 'aws:kms')
       assert.equal(req.file.contentEncoding, 'gzip')
+      done()
+    })
+  })
+
+  it('removes file from S3', function (done) {
+    var s3 = mockS3()
+    var storage = multerS3({ s3: s3, bucket: 'test' })
+    var file = { bucket: 'test', key: 'key' }
+    storage._removeFile({}, file, function (err) {
+      assert.ifError(err)
+      assert.ok(s3.sent.some(function (cmd) { return cmd instanceof DeleteObjectCommand }))
       done()
     })
   })
