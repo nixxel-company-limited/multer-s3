@@ -1,6 +1,12 @@
 var crypto = require('crypto')
 var stream = require('stream')
-var fileType = require('file-type')
+var fileTypeFromBuffer
+async function loadFileType (buffer) {
+  if (!fileTypeFromBuffer) {
+    fileTypeFromBuffer = (await import('file-type')).fileTypeFromBuffer
+  }
+  return fileTypeFromBuffer(buffer)
+}
 var htmlCommentRegex = require('html-comment-regex')
 var parallel = require('run-parallel')
 var Upload = require('@aws-sdk/lib-storage').Upload
@@ -46,23 +52,27 @@ function defaultKey (req, file, cb) {
 }
 
 function autoContentType (req, file, cb) {
-  file.stream.once('data', function (firstChunk) {
-    var type = fileType(firstChunk)
-    var mime = 'application/octet-stream' // default type
+  file.stream.once('data', async function (firstChunk) {
+    try {
+      var type = await loadFileType(firstChunk)
+      var mime = 'application/octet-stream' // default type
 
-    // Make sure to check xml-extension for svg files.
-    if ((!type || type.ext === 'xml') && isSvg(firstChunk.toString())) {
-      mime = 'image/svg+xml'
-    } else if (type) {
-      mime = type.mime
+      // Make sure to check xml-extension for svg files.
+      if ((!type || type.ext === 'xml') && isSvg(firstChunk.toString())) {
+        mime = 'image/svg+xml'
+      } else if (type) {
+        mime = type.mime
+      }
+
+      var outStream = new stream.PassThrough()
+
+      outStream.write(firstChunk)
+      file.stream.pipe(outStream)
+
+      cb(null, mime, outStream)
+    } catch (err) {
+      cb(err)
     }
-
-    var outStream = new stream.PassThrough()
-
-    outStream.write(firstChunk)
-    file.stream.pipe(outStream)
-
-    cb(null, mime, outStream)
   })
 }
 
